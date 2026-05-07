@@ -72,14 +72,14 @@
         <span class="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-center">设置</span>
       </div>
       
-      <!-- ====================== 【新增】留言按钮 ====================== -->
+      <!-- ====================== 【已修改】留言按钮 → 跳转到独立页面 ====================== -->
       <div class="relative group w-8 h-8 flex items-center justify-center">
-        <button
-          @click="openMessageBoard"
+        <router-link
+          to="/message"
           class="w-full h-full flex items-center justify-center rounded-full text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-300"
         >
           <i class="fas fa-comment hover:scale-110 transition-transform duration-300"></i>
-        </button>
+        </router-link>
         <span class="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-center">留言</span>
       </div>
       
@@ -110,12 +110,6 @@
       @close="showAddWebsiteDialog = false"
       @submit="handleSubmitWebsite"
     />
-    
-    <!-- ====================== 【新增】留言板弹窗 ====================== -->
-    <MessageBoard
-      :visible="showMessageBoard"
-      @close="closeMessageBoard"
-    />
   </nav>
 </template>
 
@@ -123,131 +117,10 @@
 import PasswordDialog from './PasswordDialog.vue';
 import AddWebsiteDialog from './AddWebsiteDialog.vue';
 
-// ====================== 【新增】留言板组件 ======================
-const MessageBoard = {
-  name: 'MessageBoard',
-  props: ['visible'],
-  emits: ['close'],
-  data() {
-    return {
-      messages: [],        // 留言列表
-      nickname: '',        // 昵称
-      content: '',         // 留言内容
-      loading: false,      // 加载中
-      submitting: false,   // 提交中
-    };
-  },
-  watch: {
-    visible(val) {
-      if (val) {
-        this.loadMessages(); // 打开时自动加载留言
-      }
-    }
-  },
-  methods: {
-    // 加载所有留言
-    async loadMessages() {
-      this.loading = true;
-      try {
-        const apiKey = localStorage.getItem('apiKey');
-        const datasheetId = localStorage.getItem('datasheetId');
-        const viewId = localStorage.getItem('viewId');
-        
-        const res = await fetch(`https://api.vika.cn/fusion/v1/datasheets/${datasheetId}/records?viewId=${viewId}&fieldKey=name`, {
-          headers: { Authorization: `Bearer ${apiKey}` }
-        });
-        const data = await res.json();
-        if (data.success) {
-          this.messages = data.data.records
-            .map(i => i.fields)
-            .filter(i => i.nickname && i.content)
-            .reverse();
-        }
-      } catch (e) {
-        console.log(e);
-      } finally {
-        this.loading = false;
-      }
-    },
-    
-    // 提交留言
-    async submitMessage() {
-      if (!this.nickname.trim() || !this.content.trim()) {
-        alert('请输入昵称和留言内容');
-        return;
-      }
-      this.submitting = true;
-      try {
-        const apiKey = localStorage.getItem('apiKey');
-        const datasheetId = localStorage.getItem('datasheetId');
-        
-        await fetch(`https://api.vika.cn/fusion/v1/datasheets/${datasheetId}/records`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            records: [{
-              fields: {
-                nickname: this.nickname,
-                content: this.content,
-                createTime: new Date().toLocaleString()
-              }
-            }]
-          })
-        });
-        alert('留言提交成功！');
-        this.nickname = '';
-        this.content = '';
-        this.loadMessages();
-      } catch (e) {
-        alert('提交失败');
-      } finally {
-        this.submitting = false;
-      }
-    },
-    
-    // 关闭
-    close() { this.$emit('close'); }
-  },
-  template: `
-  <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="close"></div>
-    <div class="bg-white dark:bg-gray-800 w-full max-w-2xl max-h-[80vh] rounded-lg shadow-xl overflow-hidden relative flex flex-col">
-      <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-        <h3 class="text-lg font-bold">网友留言板</h3>
-        <button @click="close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">&times;</button>
-      </div>
-      
-      <div class="flex-1 overflow-y-auto p-4 space-y-3">
-        <div v-if="loading" class="text-center text-gray-500">加载中...</div>
-        <div v-else-if="messages.length === 0" class="text-center text-gray-500">暂无留言，快来抢沙发～</div>
-        <div v-for="(msg, i) in messages" :key="i" class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-          <div class="font-medium text-blue-600 dark:text-blue-400">{{ msg.nickname }}</div>
-          <div class="text-sm mt-1 whitespace-pre-wrap">{{ msg.content }}</div>
-          <div class="text-xs text-gray-400 mt-1">{{ msg.createTime }}</div>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t dark:border-gray-700 space-y-2">
-        <input v-model="nickname" type="text" placeholder="输入你的昵称" class="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600">
-        <textarea v-model="content" rows="3" placeholder="分享你的想法..." class="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"></textarea>
-        <button @click="submitMessage" :disabled="submitting" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded disabled:opacity-50">
-          {{ submitting ? '提交中...' : '提交留言' }}
-        </button>
-      </div>
-    </div>
-  </div>
-  `
-};
-// ====================== 【新增结束】 ======================
-
 export default {
   components: {
     PasswordDialog,
-    AddWebsiteDialog,
-    MessageBoard // 注册留言板组件
+    AddWebsiteDialog
   },
   props: ['darkMode', 'categories'],
   data() {
@@ -284,8 +157,7 @@ export default {
         local: 'fas fa-search'
       },
       showPasswordDialog: false,
-      showAddWebsiteDialog: false,
-      showMessageBoard: false // 留言板显示控制
+      showAddWebsiteDialog: false
     };
   },
   methods: {
@@ -309,11 +181,7 @@ export default {
       } catch (error) {
         console.error('提交网站失败:', error);
       }
-    },
-    
-    // ====================== 【新增】留言板方法 ======================
-    openMessageBoard() { this.showMessageBoard = true; },
-    closeMessageBoard() { this.showMessageBoard = false; }
+    }
   }
 };
 </script>
