@@ -139,6 +139,61 @@
                 </p>
               </div>
             </div>
+
+            <!-- ====================== 【新增】留言板配置（样式完全统一） ====================== -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+              <h3 class="text-xl font-semibold mb-4 flex items-center">
+                <i class="fas fa-comment text-purple-500 mr-2"></i>
+                留言板配置
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">留言表 API 密钥</label>
+                  <input 
+                    type="password"
+                    v-model="messageApiKey"
+                    placeholder="不填则自动使用上方数据源密钥"
+                    class="w-full bg-gray-100 dark:bg-gray-700 rounded px-3 py-2"
+                  >
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">留言表格 ID (datasheetId)</label>
+                  <input 
+                    type="text"
+                    v-model="messageDatasheetId"
+                    placeholder="请输入留言表ID（dst开头）"
+                    class="w-full bg-gray-100 dark:bg-gray-700 rounded px-3 py-2"
+                  >
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">留言视图 ID (viewId)</label>
+                  <input 
+                    type="text"
+                    v-model="messageViewId"
+                    placeholder="请输入留言表视图ID（viw开头）"
+                    class="w-full bg-gray-100 dark:bg-gray-700 rounded px-3 py-2"
+                  >
+                </div>
+                <div class="flex gap-4">
+                  <button
+                    @click="saveMessageConfig"
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded"
+                  >
+                    保存留言配置
+                  </button>
+                  <button
+                    @click="resetMessageConfig"
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded"
+                  >
+                    重置
+                  </button>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                 <li> 留言表必须单独创建，不可与导航数据源共用。</li>
+                 <li> 字段必须包含：nickname（昵称）、content（内容）、createTime（时间）。</li>
+                </p>
+              </div>
+            </div>
             
             <!-- 布局设置 -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -392,12 +447,20 @@ export default {
       backgroundColors: ['#ffffff', '#f3f4f6', '#fef3c7', '#f0fdf4', '#f1f5f9', '#bfc9df'],
       selectedBg: localStorage.getItem('background') || '#ffffff',
       columns: localStorage.getItem('columns') || 5,
+      
       // API配置相关变量
       apiKey: localStorage.getItem('apiKey') || '',
       datasheetId: localStorage.getItem('datasheetId') || '',
       viewId: localStorage.getItem('viewId') || '',
+      
+      // ====================== 【新增】留言板配置变量 ======================
+      messageApiKey: localStorage.getItem('messageApiKey') || '',
+      messageDatasheetId: localStorage.getItem('messageDatasheetId') || '',
+      messageViewId: localStorage.getItem('messageViewId') || '',
+
       // 网易云歌单ID变量
       neteasePlaylistId: localStorage.getItem('neteasePlaylistId') || '',
+      
       // 分类图标相关变量
       categories: [],
       loadingCategories: false,
@@ -426,6 +489,7 @@ export default {
       ],
       isIconSettingsExpanded: false,
       showIconDropdown: {},
+      
       // 导入导出配置相关变量
       exportOptions: {
         darkMode: true,
@@ -651,6 +715,7 @@ export default {
     saveSettings() {
       localStorage.setItem('columns', this.columns)
     },
+
     // 保存API配置
     saveApiConfig() {
       if (!this.apiKey.trim() || !this.datasheetId.trim() || !this.viewId.trim()) {
@@ -673,6 +738,29 @@ export default {
       localStorage.removeItem('viewId');
       alert('API配置已重置');
     },
+
+    // ====================== 【新增】保存留言板配置 ======================
+    saveMessageConfig() {
+      if (!this.messageDatasheetId.trim() || !this.messageViewId.trim()) {
+        alert('请填写完整的留言板配置信息');
+        return;
+      }
+      localStorage.setItem('messageApiKey', this.messageApiKey);
+      localStorage.setItem('messageDatasheetId', this.messageDatasheetId);
+      localStorage.setItem('messageViewId', this.messageViewId);
+      alert('留言板配置已保存！');
+    },
+    // ====================== 【新增】重置留言板配置 ======================
+    resetMessageConfig() {
+      this.messageApiKey = '';
+      this.messageDatasheetId = '';
+      this.messageViewId = '';
+      localStorage.removeItem('messageApiKey');
+      localStorage.removeItem('messageDatasheetId');
+      localStorage.removeItem('messageViewId');
+      alert('留言板配置已重置');
+    },
+
     // 保存网易云歌单ID
     saveNeteasePlaylistId() {
       const id = this.neteasePlaylistId.trim()
