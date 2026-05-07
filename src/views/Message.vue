@@ -3,7 +3,11 @@
     <div class="flex flex-1 overflow-hidden relative">
       <main class="flex-1 flex flex-col p-4 overflow-y-auto">
         <div class="max-w-4xl mx-auto w-full">
-          <h2 class="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-6 text-center">
+          <!-- ====================== 点击这里 → 直接返回主页 ====================== -->
+          <h2 
+            class="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-8 text-center hover:text-purple-800 dark:hover:text-purple-300 transition-colors cursor-pointer"
+            @click="$router.push('/')"
+          >
             网友留言板
           </h2>
 
@@ -66,7 +70,7 @@ export default {
       submitting: false,
       messages: [],
       nickname: '',
-      content: '',
+      content: ''
     }
   },
   mounted() {
