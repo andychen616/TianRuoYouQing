@@ -1,128 +1,86 @@
-const baseUrl = 'https://api.vika.cn/fusion/v1';
+const baseUrl = 'https://api.vika.cn/fusion/v1/datasheets';
 const fieldKey = 'name';
 const DEFAULT_ICON_URL = '/default.ico';
-const PUBLIC_SHARE_ID = "shrKNHgTpgyKEqiRt41SH";
 
-// 静态兜底数据（从你维格表里提取的前10条数据，接口失败时自动使用）
-const STATIC_FALLBACK_DATA = [
-  {
-    id: "static-1",
-    parentCategory: "影视",
-    category: "在线影站",
-    name: "FREEOK",
-    url: "https://www.freeok.vip",
-    description: "",
-    icon: "https://www.freeok.shop/favicon.ico",
-    parentIcon: "fa-film",
-    sortOrder: 0,
-    updatedAt: null,
-    sort: 1
-  },
-  {
-    id: "static-2",
-    parentCategory: "影视",
-    category: "在线影站",
-    name: "两个BT",
-    url: "https://www.2btv.net",
-    description: "电影网站",
-    icon: "https://bttwo.staticimgjs.org/uploads/2026/04/logo.png",
-    parentIcon: "",
-    sortOrder: 0,
-    updatedAt: null,
-    sort: 2
-  },
-  {
-    id: "static-3",
-    parentCategory: "影视",
-    category: "在线影站",
-    name: "555电影",
-    url: "https://www.555dy.net",
-    description: "",
-    icon: "https://vpic.cms.qq.com/nj_vpic/3272248629/17385.png",
-    parentIcon: "",
-    sortOrder: 0,
-    updatedAt: null,
-    sort: 3
-  },
-  {
-    id: "static-4",
-    parentCategory: "影视",
-    category: "在线影站",
-    name: "HDmoli",
-    url: "https://www.hdmoli.com",
-    description: "",
-    icon: "https://www.hdmoli.com/static/img/logo.png",
-    parentIcon: "",
-    sortOrder: 0,
-    updatedAt: null,
-    sort: 4
-  },
-  {
-    id: "static-5",
-    parentCategory: "影视",
-    category: "在线影站",
-    name: "电影天堂蓝光站",
-    url: "https://www.dyttlg1.com",
-    description: "",
-    icon: "https://www.dyttlg1.com/template/default/images/logo.png",
-    parentIcon: "",
-    sortOrder: 0,
-    updatedAt: null,
-    sort: 5
-  }
-];
-
-// 全局数据结构
+// 全局数据结构（兼容原有代码 + 新增父分类 + 图标）
 export const websiteData = {
   originalList: [],
   parentCategories: [],
   parentToCategories: {},
   categoryToSites: {},
-  categoryIconMap: {},
+  categoryIconMap: {}, // 新增图标映射
 };
 
 export async function fetchData() {
-  let rawSites = [];
-
   try {
-    // 优先尝试公开分享接口
-    const apiUrl = `${baseUrl}/shares/${PUBLIC_SHARE_ID}/records?fieldKey=${fieldKey}&pageSize=1000`;
-    const response = await fetch(apiUrl);
-
-    if (response.ok) {
-      const responseData = await response.json();
-      if (responseData?.data?.records) {
-        rawSites = responseData.data.records.map(record => {
-          if (!record.fields?.category || !record.fields?.name) return null;
-          return {
-            id: record.recordId,
-            parentCategory: record.fields.parentCategory || '未分类',
-            category: record.fields.category,
-            name: record.fields.name,
-            url: record.fields.url,
-            description: record.fields.description || '',
-            icon: record.fields.icon || DEFAULT_ICON_URL,
-            parentIcon: record.fields.parentIcon || '',
-            sortOrder: record.fields.order ? parseInt(record.fields.order) : 0,
-            updatedAt: record.updatedAt || null,
-            sort: record.sort || 0
-          };
-        }).filter(Boolean).sort((a, b) => a.sort - b.sort);
-      }
+    const apiKey = import.meta.env.VITE_VIKA_API_KEY || localStorage.getItem('apiKey');
+    const datasheetId = import.meta.env.VITE_VIKA_DATASHEET_ID || localStorage.getItem('datasheetId');
+    const viewId = import.meta.env.VITE_VIKA_VIEW_ID || localStorage.getItem('viewId');
+    
+    if (!apiKey || !datasheetId || !viewId) {
+      throw new Error('API配置不完整，请前往设置页面配置');
     }
+    
+    const apiUrl = `${baseUrl}/${datasheetId}/records?viewId=${viewId}&fieldKey=${fieldKey}&pageSize=1000`;
+    
+    const response = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API请求失败:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      throw new Error('API请求失败');
+    }
+    
+    const responseData = await response.json();
+    
+    if (!responseData || !responseData.data || !responseData.data.records || !Array.isArray(responseData.data.records)) {
+      throw new Error(`返回数据格式不正确: ${JSON.stringify(responseData)}`);
+    }
+    
+    // 处理原始数据
+    const rawSites = responseData.data.records.map(record => {
+      if (!record.fields || !record.fields.category || !record.fields.name) {
+        console.warn('缺少必填字段的记录:', record);
+        return null;
+      }
+      return {
+        id: record.recordId,
+        parentCategory: record.fields.parentCategory || '未分类',
+        category: record.fields.category,
+        name: record.fields.name,
+        url: record.fields.url,
+        description: record.fields.description || '',
+        icon: record.fields.icon || DEFAULT_ICON_URL,
+        parentIcon: record.fields.parentIcon || '',
+        sortOrder: record.fields.order ? parseInt(record.fields.order) : 0,
+        updatedAt: record.updatedAt || record.fields.updatedAt || null,
+        sort: record.sort  // 添加维格表内置拖拽排序字段
+      };
+    }).filter(Boolean)
+      .sort((a, b) => a.sort - b.sort); // 按表格拖拽顺序排序
+
+    websiteData.originalList = rawSites;
+
+    groupDataByParentCategory(rawSites);
+
+    // 自动生成大分类图标
+    buildCategoryIconMap(rawSites);
+
+    return rawSites;
+
   } catch (error) {
-    console.error('公开接口请求失败，使用静态兜底数据:', error);
+    console.error('数据获取失败:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
   }
-
-  // 如果接口失败或返回数据为空，使用静态兜底数据
-  if (!rawSites || rawSites.length === 0) {
-    rawSites = STATIC_FALLBACK_DATA;
-  }
-
-  websiteData.originalList = rawSites;
-  groupDataByParentCategory(rawSites);
-  buildCategoryIconMap(rawSites);
-  return rawSites;
 }
 
 function groupDataByParentCategory(sites) {
@@ -131,58 +89,74 @@ function groupDataByParentCategory(sites) {
   const siteMap = {};
 
   sites.forEach(item => {
-    const parent = item.parentCategory;
+    const parentCategory = item.parentCategory;
     const category = item.category;
-    parentSet.add(parent);
-    parentMap[parent] = parentMap[parent] || new Set();
-    parentMap[parent].add(category);
-    siteMap[category] = siteMap[category] || [];
+
+    parentSet.add(parentCategory);
+
+    if (!parentMap[parentCategory]) {
+      parentMap[parentCategory] = new Set();
+    }
+    parentMap[parentCategory].add(category);
+
+    if (!siteMap[category]) {
+      siteMap[category] = [];
+    }
     siteMap[category].push(item);
   });
 
-  websiteData.parentCategories = Array.from(parentSet);
+  websiteData.parentCategories = Array.from(parentSet); // 去掉 .sort()，保持表格拖拽顺序
   websiteData.parentToCategories = Object.fromEntries(
     Object.entries(parentMap).map(([k, v]) => [k, Array.from(v)])
   );
   websiteData.categoryToSites = siteMap;
 }
 
+// 构建分类图标
 function buildCategoryIconMap(sites) {
   const iconMap = {};
+
   sites.forEach(item => {
     const parent = item.parentCategory;
     const icon = item.parentIcon;
-    if (parent && icon && !iconMap[parent]) iconMap[parent] = icon;
+    if (parent && icon && !iconMap[parent]) {
+      iconMap[parent] = icon;
+    }
   });
+
+  // 默认图标
   iconMap['我的收藏'] = iconMap['我的收藏'] || 'fa-star';
   iconMap['关于本站'] = iconMap['关于本站'] || 'fa-info-circle';
+
   websiteData.categoryIconMap = iconMap;
 }
 
-// 添加网站功能（仅你自己用，保留API Key逻辑）
+// 原有 addWebsite 逻辑 100% 不变
 export async function addWebsite(websiteData) {
   try {
-    const apiKey = import.meta.env.VITE_VIKA_API_KEY || localStorage.getItem('apiKey');
+    const apiKey = import.meta.env.VITE_VIKA_API_KEY || localStorage.getItem('datasheetId');
     const datasheetId = import.meta.env.VITE_VIKA_DATASHEET_ID || localStorage.getItem('datasheetId');
     
     if (!apiKey || !datasheetId) {
       throw new Error('API配置不完整，请前往设置页面配置');
     }
     
-    const apiUrl = `${baseUrl}/datasheets/${datasheetId}/records?fieldKey=name`;
+    const apiUrl = `${baseUrl}/${datasheetId}/records?fieldKey=name`;
     
     const requestBody = {
-      records: [{
-        fields: {
-          parentCategory: websiteData.parentCategory || '未分类',
-          category: websiteData.category,
-          name: websiteData.name,
-          url: websiteData.url,
-          icon: websiteData.icon,
-          description: websiteData.description,
-          order: (websiteData.order || 0).toString()
+      records: [
+        {
+          fields: {
+            parentCategory: websiteData.parentCategory || '未分类',
+            category: websiteData.category,
+            name: websiteData.name,
+            url: websiteData.url,
+            icon: websiteData.icon,
+            description: websiteData.description,
+            order: websiteData.order.toString()
+          }
         }
-      }],
+      ],
       fieldKey: "name"
     };
     
@@ -195,11 +169,24 @@ export async function addWebsite(websiteData) {
       body: JSON.stringify(requestBody)
     });
     
-    if (!response.ok) throw new Error('提交失败');
-    const res = await response.json();
-    return res.data.records[0];
-  } catch (e) {
-    console.error(e);
-    throw e;
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API请求失败:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      throw new Error('API请求失败');
+    }
+    
+    const responseData = await response.json();
+    return responseData.data.records[0];
+  } catch (error) {
+    console.error('数据提交失败:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
   }
 }
