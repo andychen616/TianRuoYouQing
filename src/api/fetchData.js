@@ -5,9 +5,9 @@ const DEFAULT_ICON_URL = '/default.ico';
 // ======================
 // 在这里填写你的 3 个公开信息（无API KEY）
 // ======================
-const PUBLIC_SHARE_TOKEN = "这里填你的分享TOKEN";
-const PUBLIC_DATASHEET_ID = "这里填你的表格ID";
-const PUBLIC_VIEW_ID = "这里填你的视图ID";
+const PUBLIC_SHARE_TOKEN = "uskKXXQPNBx078SB7OsZOF0";
+const PUBLIC_DATASHEET_ID = "dstbDyo356Lw3WUoWF";
+const PUBLIC_VIEW_ID = "viwt0unKYhFBz";
 
 // 全局数据结构
 export const websiteData = {
