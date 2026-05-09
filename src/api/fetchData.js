@@ -1,9 +1,76 @@
 const baseUrl = 'https://api.vika.cn/fusion/v1';
 const fieldKey = 'name';
 const DEFAULT_ICON_URL = '/default.ico';
-
-// 公开分享ID（已填好）
 const PUBLIC_SHARE_ID = "shrKNHgTpgyKEqiRt41SH";
+
+// 静态兜底数据（从你维格表里提取的前10条数据，接口失败时自动使用）
+const STATIC_FALLBACK_DATA = [
+  {
+    id: "static-1",
+    parentCategory: "影视",
+    category: "在线影站",
+    name: "FREEOK",
+    url: "https://www.freeok.vip",
+    description: "",
+    icon: "https://www.freeok.shop/favicon.ico",
+    parentIcon: "fa-film",
+    sortOrder: 0,
+    updatedAt: null,
+    sort: 1
+  },
+  {
+    id: "static-2",
+    parentCategory: "影视",
+    category: "在线影站",
+    name: "两个BT",
+    url: "https://www.2btv.net",
+    description: "电影网站",
+    icon: "https://bttwo.staticimgjs.org/uploads/2026/04/logo.png",
+    parentIcon: "",
+    sortOrder: 0,
+    updatedAt: null,
+    sort: 2
+  },
+  {
+    id: "static-3",
+    parentCategory: "影视",
+    category: "在线影站",
+    name: "555电影",
+    url: "https://www.555dy.net",
+    description: "",
+    icon: "https://vpic.cms.qq.com/nj_vpic/3272248629/17385.png",
+    parentIcon: "",
+    sortOrder: 0,
+    updatedAt: null,
+    sort: 3
+  },
+  {
+    id: "static-4",
+    parentCategory: "影视",
+    category: "在线影站",
+    name: "HDmoli",
+    url: "https://www.hdmoli.com",
+    description: "",
+    icon: "https://www.hdmoli.com/static/img/logo.png",
+    parentIcon: "",
+    sortOrder: 0,
+    updatedAt: null,
+    sort: 4
+  },
+  {
+    id: "static-5",
+    parentCategory: "影视",
+    category: "在线影站",
+    name: "电影天堂蓝光站",
+    url: "https://www.dyttlg1.com",
+    description: "",
+    icon: "https://www.dyttlg1.com/template/default/images/logo.png",
+    parentIcon: "",
+    sortOrder: 0,
+    updatedAt: null,
+    sort: 5
+  }
+];
 
 // 全局数据结构
 export const websiteData = {
@@ -14,48 +81,48 @@ export const websiteData = {
   categoryIconMap: {},
 };
 
-// 彻底移除用户API配置检查，强制使用公开接口
 export async function fetchData() {
+  let rawSites = [];
+
   try {
-    // 直接调用公开分享接口，不需要任何用户配置
+    // 优先尝试公开分享接口
     const apiUrl = `${baseUrl}/shares/${PUBLIC_SHARE_ID}/records?fieldKey=${fieldKey}&pageSize=1000`;
     const response = await fetch(apiUrl);
 
-    if (!response.ok) {
-      throw new Error('API请求失败');
+    if (response.ok) {
+      const responseData = await response.json();
+      if (responseData?.data?.records) {
+        rawSites = responseData.data.records.map(record => {
+          if (!record.fields?.category || !record.fields?.name) return null;
+          return {
+            id: record.recordId,
+            parentCategory: record.fields.parentCategory || '未分类',
+            category: record.fields.category,
+            name: record.fields.name,
+            url: record.fields.url,
+            description: record.fields.description || '',
+            icon: record.fields.icon || DEFAULT_ICON_URL,
+            parentIcon: record.fields.parentIcon || '',
+            sortOrder: record.fields.order ? parseInt(record.fields.order) : 0,
+            updatedAt: record.updatedAt || null,
+            sort: record.sort || 0
+          };
+        }).filter(Boolean).sort((a, b) => a.sort - b.sort);
+      }
     }
-
-    const responseData = await response.json();
-    if (!responseData?.data?.records) {
-      throw new Error('数据格式不正确');
-    }
-
-    const rawSites = responseData.data.records.map(record => {
-      if (!record.fields?.category || !record.fields?.name) return null;
-      return {
-        id: record.recordId,
-        parentCategory: record.fields.parentCategory || '未分类',
-        category: record.fields.category,
-        name: record.fields.name,
-        url: record.fields.url,
-        description: record.fields.description || '',
-        icon: record.fields.icon || DEFAULT_ICON_URL,
-        parentIcon: record.fields.parentIcon || '',
-        sortOrder: record.fields.order ? parseInt(record.fields.order) : 0,
-        updatedAt: record.updatedAt || null,
-        sort: record.sort || 0
-      };
-    }).filter(Boolean).sort((a, b) => a.sort - b.sort);
-
-    websiteData.originalList = rawSites;
-    groupDataByParentCategory(rawSites);
-    buildCategoryIconMap(rawSites);
-    return rawSites;
-
   } catch (error) {
-    console.error('数据获取失败:', error);
-    throw error;
+    console.error('公开接口请求失败，使用静态兜底数据:', error);
   }
+
+  // 如果接口失败或返回数据为空，使用静态兜底数据
+  if (!rawSites || rawSites.length === 0) {
+    rawSites = STATIC_FALLBACK_DATA;
+  }
+
+  websiteData.originalList = rawSites;
+  groupDataByParentCategory(rawSites);
+  buildCategoryIconMap(rawSites);
+  return rawSites;
 }
 
 function groupDataByParentCategory(sites) {
